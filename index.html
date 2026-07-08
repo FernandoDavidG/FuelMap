@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Surtidores de Trinidad, Beni — Estado de filas</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#0f2420;
+    --bg-deep-2:#14352d;
+    --bg-panel:#faf6ec;
+    --bg-panel-2:#f1e9d2;
+    --line:#ddd2b0;
+    --ink:#1c2a22;
+    --ink-soft:#5d6e62;
+    --river:#2f86a8;
+    --amber:#e0942f;
+    --q1:#4f9d5c;
+    --q2:#e0b13a;
+    --q3:#d97a35;
+    --q4:#c0453a;
+    --neutral:#93948c;
+    --font-display:'Space Grotesk',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;font-family:var(--font-body);color:var(--ink);background:var(--bg-deep);}
+  #root{height:100vh;width:100%;display:flex;flex-direction:column;overflow:hidden;}
+  .hidden{display:none !important;}
+  button{font-family:var(--font-body);cursor:pointer;}
+  button:focus-visible, input:focus-visible{outline:2px solid var(--river); outline-offset:2px;}
+
+  
+  #login-screen{
+    flex:1;display:flex;align-items:center;justify-content:center;
+    background:
+      radial-gradient(circle at 15% 20%, rgba(47,134,168,0.18), transparent 45%),
+      radial-gradient(circle at 85% 80%, rgba(224,148,47,0.12), transparent 45%),
+      var(--bg-deep);
+    padding:24px;position:relative;
+  }
+  .river-line{position:absolute;inset:0;width:100%;height:100%;opacity:0.25;pointer-events:none;}
+  .login-card{
+    width:100%;max-width:380px;background:var(--bg-panel);border-radius:14px;
+    padding:34px 32px 28px;box-shadow:0 30px 60px rgba(0,0,0,0.35);position:relative;z-index:1;
+    border:1px solid var(--line);
+  }
+  .login-eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--river);margin:0 0 6px;}
+  .login-title{font-family:var(--font-display);font-size:26px;font-weight:700;margin:0 0 4px;line-height:1.15;}
+  .login-sub{font-size:13px;color:var(--ink-soft);margin:0 0 24px;line-height:1.5;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em;}
+  .field input{
+    width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:8px;
+    font-size:15px;background:#fff;color:var(--ink);
+  }
+  .login-btn{
+    width:100%;padding:12px;border:none;border-radius:8px;background:var(--ink);color:#fff;
+    font-weight:600;font-size:15px;margin-top:6px;transition:background .15s ease;
+  }
+  .login-btn:hover{background:var(--river);}
+  .login-error{
+    margin-top:12px;font-size:13px;color:#fff;background:var(--q4);border-radius:7px;padding:9px 11px;
+    display:none;
+  }
+  .login-hint{margin-top:18px;font-size:11.5px;color:var(--ink-soft);border-top:1px dashed var(--line);padding-top:12px;line-height:1.6;}
+  .login-toggle{margin-top:14px;margin-bottom:0;font-size:12.5px;color:var(--ink-soft);text-align:center;}
+  .login-toggle a{color:var(--river);font-weight:600;text-decoration:none;cursor:pointer;}
+  .login-toggle a:hover{text-decoration:underline;}
+
+  
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:13px 22px;background:var(--bg-deep-2);color:#fff;flex-shrink:0;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+  }
+  .topbar-left{display:flex;align-items:center;gap:10px;min-width:0;}
+  .topbar-badge{
+    width:34px;height:34px;border-radius:8px;background:var(--amber);display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .topbar-title{font-family:var(--font-display);font-size:16px;font-weight:700;line-height:1.2;}
+  .topbar-title small{display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:400;color:#b9c9bf;letter-spacing:.05em;text-transform:uppercase;margin-top:2px;}
+  .topbar-right{display:flex;align-items:center;gap:14px;flex-shrink:0;}
+  .topbar-user{font-size:13px;font-family:var(--font-mono);color:#d7e3da;}
+  .logout-btn{
+    border:1px solid rgba(255,255,255,0.25);background:transparent;color:#fff;padding:7px 13px;
+    border-radius:7px;font-size:12.5px;font-weight:600;transition:background .15s;
+  }
+  .logout-btn:hover{background:rgba(255,255,255,0.12);}
+
+  
+  #app-content{flex:1;display:flex;min-height:0;}
+  #map{position:absolute;inset:0;width:100%;height:100%;background:#cdd9d0;}
+  #sidebar{
+    width:380px;flex-shrink:0;background:var(--bg-panel);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;overflow-y:auto;
+  }
+  .sidebar-inner{padding:20px 20px 26px;}
+  .empty-state{
+    text-align:center;padding:50px 10px;color:var(--ink-soft);
+  }
+  .empty-state svg{margin-bottom:14px;opacity:.55;}
+  .empty-state p{font-size:13.5px;line-height:1.6;max-width:230px;margin:0 auto;}
+
+  .station-eyebrow{font-family:var(--font-mono);font-size:10.5px;color:var(--river);text-transform:uppercase;letter-spacing:.08em;margin:0 0 4px;}
+  .station-name{font-family:var(--font-display);font-weight:700;font-size:20px;margin:0 0 4px;line-height:1.2;}
+  .station-address{font-size:12.5px;color:var(--ink-soft);margin:0 0 18px;}
+
+  .status-card{
+    border-radius:11px;border:1.5px solid var(--line);background:#fff;padding:16px 16px 14px;margin-bottom:18px;
+  }
+  .status-card.is-empty{background:repeating-linear-gradient(135deg, #fff 0 10px, #f6f1e3 10px 20px);}
+  .status-label{font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);margin:0 0 10px;}
+  .status-blank-text{font-size:13px;color:var(--ink-soft);line-height:1.5;margin:0;}
+  .status-grid{display:flex;gap:10px;margin-bottom:14px;}
+  .status-chip{
+    flex:1;border-radius:8px;padding:9px 8px;text-align:center;background:var(--bg-panel-2);
+  }
+  .status-chip .chip-k{font-family:var(--font-mono);font-size:9.5px;text-transform:uppercase;color:var(--ink-soft);letter-spacing:.05em;display:block;margin-bottom:3px;}
+  .status-chip .chip-v{font-family:var(--font-display);font-weight:700;font-size:15px;}
+
+  .gauge-wrap{margin-top:2px;}
+  .gauge-row{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10px;color:var(--ink-soft);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;}
+  .gauge-track{position:relative;height:10px;border-radius:6px;background:var(--bg-panel-2);overflow:hidden;border:1px solid var(--line);}
+  .gauge-fill{height:100%;border-radius:6px 0 0 6px;transition:width .25s linear, background .25s linear;}
+  .gauge-foot{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--ink-soft);}
+  .gauge-foot b{font-family:var(--font-mono);color:var(--ink);}
+
+  .form-section-title{font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);margin:18px 0 8px;}
+  .chip-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .opt-btn{
+    border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:9px 13px;font-size:13px;font-weight:600;color:var(--ink);
+    transition:all .12s ease;
+  }
+  .opt-btn:hover{border-color:var(--river);}
+  .opt-btn.selected{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .opt-btn.fuel-btn{flex:1;text-align:center;font-size:12.5px;}
+
+  .submit-report-btn{
+    width:100%;margin-top:18px;padding:12px;border:none;border-radius:8px;background:var(--river);
+    color:#fff;font-weight:700;font-size:14px;transition:background .15s;
+  }
+  .submit-report-btn:hover{background:#266a85;}
+  .submit-report-btn:disabled{background:#b9c4bd;cursor:not-allowed;}
+  .form-warn{font-size:12px;color:var(--q4);margin-top:8px;display:none;}
+  .report-ok{font-size:12px;color:var(--q1);margin-top:8px;display:none;font-weight:600;opacity:0;visibility:hidden;transition:opacity .5s ease;}
+  .legend-box{
+    position:absolute;left:16px;bottom:16px;background:rgba(250,246,236,0.95);border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;font-size:11px;font-family:var(--font-mono);color:var(--ink);
+    box-shadow:0 6px 18px rgba(0,0,0,0.18);z-index:500;
+  }
+  .legend-box .lg-title{text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);font-size:9.5px;margin-bottom:6px;}
+  .legend-row{display:flex;align-items:center;gap:6px;margin-bottom:3px;}
+  .legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+
+  .map-wrap{flex:1;position:relative;min-height:0;overflow:hidden;}
+  .source-note{
+    position:absolute;right:14px;bottom:14px;background:rgba(15,36,32,0.85);color:#cfe0d6;font-size:10.5px;
+    font-family:var(--font-mono);padding:7px 10px;border-radius:7px;max-width:230px;line-height:1.5;z-index:500;
+  }
+
+  .pump-marker{filter:drop-shadow(0 3px 5px rgba(0,0,0,0.35));}
+  .pump-marker.selected svg circle{stroke:#fff;stroke-width:2.4;}
+
+  
+  #admin-content{flex:1;overflow-y:auto;background:var(--bg-deep);padding:28px;}
+  .admin-panel{max-width:980px;margin:0 auto;background:var(--bg-panel);border-radius:12px;padding:24px 26px 30px;border:1px solid var(--line);}
+  .admin-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap;}
+  .admin-h-title{font-family:var(--font-display);font-size:21px;font-weight:700;margin:0 0 4px;}
+  .admin-h-sub{font-size:12.5px;color:var(--ink-soft);margin:0;font-family:var(--font-mono);}
+  .admin-actions{display:flex;gap:8px;}
+  .admin-btn{border:1.5px solid var(--line);background:#fff;padding:8px 14px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--ink);}
+  .admin-btn:hover{border-color:var(--river);}
+  .admin-btn.danger{color:var(--q4);}
+  .admin-btn.danger:hover{border-color:var(--q4);}
+
+  table.log-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  table.log-table th{
+    text-align:left;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--ink-soft);padding:8px 10px;border-bottom:2px solid var(--line);
+  }
+  table.log-table td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.log-table tr:hover td{background:rgba(47,134,168,0.06);}
+  .tag{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:700;font-family:var(--font-mono);text-transform:uppercase;}
+  .tag-login{background:#e5eef0;color:var(--river);}
+  .tag-report{background:#f3e7d6;color:#a8631e;}
+  .mono{font-family:var(--font-mono);color:var(--ink-soft);font-size:11.5px;}
+  .admin-empty{padding:40px 0;text-align:center;color:var(--ink-soft);font-size:13px;}
+
+  
+  @keyframes btn-pop{
+    0%  {transform:scale(1);}
+    40% {transform:scale(0.90);}
+    70% {transform:scale(1.09);}
+    100%{transform:scale(1);}
+  }
+  @keyframes fade-up{
+    from{opacity:0;transform:translateY(10px);}
+    to  {opacity:1;transform:translateY(0);}
+  }
+  @keyframes shake{
+    0%,100%{transform:translateX(0);}
+    20%    {transform:translateX(-8px);}
+    40%    {transform:translateX(8px);}
+    60%    {transform:translateX(-5px);}
+    80%    {transform:translateX(5px);}
+  }
+  @keyframes card-pop{
+    from{opacity:0;transform:translateY(9px) scale(0.97);}
+    to  {opacity:1;transform:translateY(0) scale(1);}
+  }
+  @keyframes slide-in{
+    from{opacity:0;transform:translateX(-16px);}
+    to  {opacity:1;transform:translateX(0);}
+  }
+
+  
+  .login-card{animation:fade-up .45s cubic-bezier(.22,.68,0,1.15) both;}
+
+  
+  .field input{transition:border-color .15s ease, box-shadow .15s ease;}
+  .field input:focus{border-color:var(--river);box-shadow:0 0 0 3px rgba(47,134,168,0.15);outline:none;}
+
+  
+  .login-btn{transition:background .15s ease, transform .1s ease, box-shadow .15s ease;}
+  .login-btn:hover{box-shadow:0 4px 18px rgba(47,134,168,0.32);}
+  .login-btn:active{transform:scale(0.95);}
+
+  
+  .login-error{animation:shake .38s ease;}
+
+  
+  .opt-btn{transition:all .15s cubic-bezier(.22,.68,0,1.2);}
+  .opt-btn:hover{box-shadow:0 3px 10px rgba(0,0,0,0.11);}
+  .opt-btn:active{transform:scale(0.90);}
+  .opt-btn.selected{animation:btn-pop .22s cubic-bezier(.22,.68,0,1.2) both;}
+
+  
+  .submit-report-btn{transition:background .15s ease, transform .12s ease, box-shadow .15s ease;}
+  .submit-report-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 7px 22px rgba(47,134,168,0.34);}
+  .submit-report-btn:active:not(:disabled){transform:scale(0.96);box-shadow:none;}
+
+  
+  .admin-btn{transition:all .15s ease;}
+  .admin-btn:active{transform:scale(0.94);}
+
+  
+  .logout-btn{transition:background .15s ease, transform .12s ease;}
+  .logout-btn:active{transform:scale(0.94);}
+
+  
+  .station-name{animation:slide-in .28s cubic-bezier(.22,.68,0,1.2) both;}
+  
+  .chip-row{animation:fade-up .25s ease both;}
+  .report-ok{animation:fade-up .25s ease both;}
+
+  
+  .legend-box{transition:transform .15s ease, box-shadow .15s ease;}
+  .legend-box:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,0,0,0.24);}
+
+  
+  .topbar-badge{transition:transform .2s cubic-bezier(.22,.68,0,1.5);}
+  .topbar-badge:hover{transform:scale(1.13) rotate(-5deg);}
+
+  
+  @media (max-width: 860px){
+    #app-content{flex-direction:column;}
+    #sidebar{width:100%;max-height:46vh;border-right:none;border-top:1px solid var(--line);order:2;}
+    .map-wrap{order:1;height:54vh;}
+    .source-note{max-width:160px;font-size:9.5px;}
+    .admin-content, #admin-content{padding:14px;}
+    .admin-panel{padding:18px 16px 22px;}
+    table.log-table{font-size:11px;}
+  }
+</style>
+</head>
+<body>
+<div id="root">
+
+  
+  <section id="login-screen">
+    <svg class="river-line" viewBox="0 0 800 600" preserveAspectRatio="none">
+      <path d="M-20,420 C150,380 220,500 380,460 C540,420 600,300 800,340" stroke="#2f86a8" stroke-width="3" fill="none"/>
+      <path d="M-20,500 C180,470 260,560 420,520 C600,480 660,400 820,430" stroke="#e0942f" stroke-width="2" fill="none"/>
+    </svg>
+    <div class="login-card">
+      <p class="login-eyebrow">Beni · Trinidad</p>
+      <h1 class="login-title">Estado de surtidores</h1>
+      <p class="login-sub">Ingresa con tu nombre y contraseña. </p>
+      <div class="field">
+        <label for="login-name">Nombre</label>
+        <input id="login-name" type="text" autocomplete="username" placeholder="Nombre de usuario">
+      </div>
+      <div class="field">
+        <label for="login-pass">Contraseña</label>
+        <input id="login-pass" type="password" autocomplete="current-password" placeholder="Contraseña">
+      </div>
+      <div class="field hidden" id="confirm-pass-field">
+        <label for="login-pass-confirm">Confirmar contraseña</label>
+        <input id="login-pass-confirm" type="password" autocomplete="new-password" placeholder="Repetí la contraseña">
+      </div>
+      <button class="login-btn" id="login-submit">Ingresar</button>
+      <p class="login-error" id="login-error">Nombre o contraseña incorrectos. </p>
+      <p class="login-toggle" id="login-toggle-msg">¿No tenés perfil? <a href="#" id="toggle-auth-mode">Creá uno</a></p>
+      <p class="login-hint">Ingrese como administrador (consulta el registro). O ingrese como usuario (reporta). El acceso a administrador requiere un permiso.</p>
+    </div>
+  </section>
+
+  
+  <section id="admin-screen" class="hidden" style="display:flex;flex-direction:column;height:100%;">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-badge">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2 4 6v6c0 5 4 8.5 8 10 4-1.5 8-5 8-10V6l-8-4Z" fill="#1c2a22"/></svg>
+        </div>
+        <div class="topbar-title">Panel de administrador<small>Surtidores Trinidad, Beni</small></div>
+      </div>
+      <div class="topbar-right">
+        <span class="topbar-user" id="admin-username-tag"></span>
+        <button class="logout-btn" id="admin-logout">Cerrar sesión</button>
+      </div>
+    </div>
+    <div id="admin-content">
+      <div class="admin-panel">
+        <div class="admin-head">
+          <div>
+            <p class="admin-h-title">Registro de actividad</p>
+            <p class="admin-h-sub">Inicios de sesión y reportes enviados por el perfil de usuario</p>
+          </div>
+          <div class="admin-actions">
+            <button class="admin-btn" id="admin-refresh">Actualizar</button>
+            <button class="admin-btn danger" id="admin-clear">Vaciar registro</button>
+          </div>
+        </div>
+        <div id="admin-table-wrap"></div>
+      </div>
+    </div>
+  </section>
+
+  
+  <section id="app-screen" class="hidden" style="display:flex;flex-direction:column;height:100%;">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-badge">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="10" height="16" rx="1.2" fill="#1c2a22"/><path d="M15 8h2.2A2 2 0 0 1 19 10v6.2a1.8 1.8 0 1 1-3.6 0V12" stroke="#1c2a22" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+        </div>
+        <div class="topbar-title">Surtidores de Trinidad, Beni<small>Filas reportadas por usuarios</small></div>
+      </div>
+      <div class="topbar-right">
+        <span class="topbar-user" id="app-username-tag"></span>
+        <button class="logout-btn" id="app-logout">Cerrar sesión</button>
+      </div>
+    </div>
+    <div id="app-content">
+      <aside id="sidebar">
+        <div class="sidebar-inner" id="sidebar-inner">
+          <div class="empty-state" id="empty-state">
+            <svg width="46" height="46" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-7.2 7-12A7 7 0 1 0 5 9c0 4.8 7 12 7 12Z" stroke="#5d6e62" stroke-width="1.4"/><circle cx="12" cy="9" r="2.4" stroke="#5d6e62" stroke-width="1.4"/></svg>
+            <p>Toca un marcador en el mapa para ver el estado del surtidor y enviar tu reporte.</p>
+          </div>
+        </div>
+      </aside>
+      <div class="map-wrap">
+        <div id="map"></div>
+        <div class="legend-box">
+          <div class="lg-title">Estado de fila</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#93948c"></span>Sin reportes recientes</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#4f9d5c"></span>&lt; 5 vehículos</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#e0b13a"></span>5 – 10 vehículos</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#d97a35"></span>10 – 15 vehículos</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#c0453a"></span>&gt; 20 vehículos</div>
+        </div>
+        <div class="source-note">Ubicaciones verificadas con datos públicos de mapas.</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function(){
+
+  
+  
+  var STATIONS = [
+    { id:'chaparral', name:'Surtidor El Chaparral', address:'53GV+2PM, Trinidad, Bolivia', lat:-14.8249006, lng:-64.9056923 },
+    { id:'oasis',     name:'Surtidor El Oasis',      address:'Av. Simón Bolívar, Trinidad, Bolivia', lat:-14.8293033, lng:-64.8919514 },
+    { id:'paititi',   name:'Gas Station Paititi',    address:'54FG+F9X, Trinidad, Bolivia', lat:-14.8262592, lng:-64.8740024 },
+    { id:'iriarte',   name:'Surtidor Iriarte',       address:'54C6+PJ6, Av. Panamericana, Trinidad, Bolivia', lat:-14.8282066, lng:-64.8884800 },
+    { id:'pompeya',   name:'Estación de Servicios Pompeya', address:'533V+6WH, Trinidad, Bolivia', lat:-14.8469406, lng:-64.9051314 }
+  ];
+
+  var CREDENTIALS = {
+    admin: { name:'AdminPub', pass:'19671967' },
+    user:  { name:'Usuario', pass:'123' }
+  };
+
+  var RANGE_OPTIONS = ['<5','5-10','10-15','>20'];
+  var FUEL_OPTIONS = ['Gasolina','Diésel','Gasolina amarilla'];
+  var REPORT_TTL_MS = 1800000;
+
+  var COLORS = { '<5':'#4f9d5c', '5-10':'#e0b13a', '10-15':'#d97a35', '>20':'#c0453a', neutral:'#93948c' };
+
+  
+  var currentUser = null;           
+  var map = null, mapInited = false;
+  var markers = {};                  
+  var activeReports = {};            
+  var timers = {};                  
+  var selectedStationId = null;
+  var draftSelection = { vehicle:null, range:null, fuel:null };
+
+  
+  function getLog(){
+    const data = localStorage.getItem("activity_log");
+    return data ? JSON.parse(data) : [];
+}
+  function saveLog(arr){
+    const trimmed = arr.slice(-200);
+    localStorage.setItem("activity_log", JSON.stringify(trimmed));
+}
+  function logActivity(entry){
+    const log = getLog();
+    log.push(entry);
+    saveLog(log);
+}
+
+  function getRegisteredUsers(){
+    var data = localStorage.getItem('registered_users');
+    return data ? JSON.parse(data) : {};
+}
+  function saveRegisteredUsers(obj){
+    localStorage.setItem('registered_users', JSON.stringify(obj));
+}
+
+  
+  var loginNameEl = document.getElementById('login-name');
+  var loginPassEl = document.getElementById('login-pass');
+  var loginErrorEl = document.getElementById('login-error');
+  var loginPassConfirmEl = document.getElementById('login-pass-confirm');
+  var confirmPassFieldEl = document.getElementById('confirm-pass-field');
+  var loginSubmitBtn = document.getElementById('login-submit');
+  var loginToggleMsgEl = document.getElementById('login-toggle-msg');
+  var authMode = 'login';
+
+  document.getElementById('login-submit').addEventListener('click', handleAuthSubmit);
+  loginPassEl.addEventListener('keydown', function(e){ if(e.key === 'Enter') handleAuthSubmit(); });
+  loginNameEl.addEventListener('keydown', function(e){ if(e.key === 'Enter') handleAuthSubmit(); });
+  loginToggleMsgEl.addEventListener('click', function(e){
+    if(e.target && e.target.id === 'toggle-auth-mode'){
+      e.preventDefault();
+      authMode = authMode === 'login' ? 'register' : 'login';
+      updateAuthModeUI();
+    }
+  });
+
+  function updateAuthModeUI(){
+    loginErrorEl.style.display = 'none';
+    if(authMode === 'register'){
+      loginSubmitBtn.textContent = 'Crear perfil';
+      confirmPassFieldEl.classList.remove('hidden');
+      loginToggleMsgEl.innerHTML = '¿Ya tenés perfil? <a href="#" id="toggle-auth-mode">Iniciá sesión</a>';
+    } else {
+      loginSubmitBtn.textContent = 'Ingresar';
+      confirmPassFieldEl.classList.add('hidden');
+      loginToggleMsgEl.innerHTML = '¿No tenés perfil? <a href="#" id="toggle-auth-mode">Creá uno</a>';
+      loginErrorEl.textContent = 'Nombre o contraseña incorrectos.';
+    }
+  }
+
+  function handleAuthSubmit(){
+    if(authMode === 'register') attemptRegister();
+    else attemptLogin();
+  }
+
+  function attemptLogin(){
+    var name = loginNameEl.value.trim();
+    var pass = loginPassEl.value;
+    loginErrorEl.style.display = 'none';
+
+    if(name === CREDENTIALS.admin.name && pass === CREDENTIALS.admin.pass){
+      currentUser = { name: CREDENTIALS.admin.name, role:'admin' };
+      logActivity({ type:'login', role:'admin', name: currentUser.name, ts: Date.now() });
+      showAdminScreen();
+      return;
+    }
+    if(name === CREDENTIALS.user.name && pass === CREDENTIALS.user.pass){
+      currentUser = { name: CREDENTIALS.user.name, role:'usuario' };
+      logActivity({ type:'login', role:'usuario', name: currentUser.name, ts: Date.now() });
+      showAppScreen();
+      return;
+    }
+    var registeredUsers = getRegisteredUsers();
+    var regKey = name.toLowerCase();
+    if(registeredUsers[regKey] && registeredUsers[regKey].pass === pass){
+      currentUser = { name: registeredUsers[regKey].name, role:'usuario' };
+      logActivity({ type:'login', role:'usuario', name: currentUser.name, ts: Date.now() });
+      showAppScreen();
+      return;
+    }
+    loginErrorEl.style.display = 'block';
+  }
+
+  function attemptRegister(){
+    var name = loginNameEl.value.trim();
+    var pass = loginPassEl.value;
+    var confirmPass = loginPassConfirmEl.value;
+    loginErrorEl.style.display = 'none';
+
+    if(!name || !pass){
+      loginErrorEl.textContent = 'Completá nombre y contraseña.';
+      loginErrorEl.style.display = 'block';
+      return;
+    }
+    if(pass !== confirmPass){
+      loginErrorEl.textContent = 'Las contraseñas no coinciden.';
+      loginErrorEl.style.display = 'block';
+      return;
+    }
+    var regKey = name.toLowerCase();
+    if(regKey === CREDENTIALS.admin.name.toLowerCase() || regKey === CREDENTIALS.user.name.toLowerCase()){
+      loginErrorEl.textContent = 'Ese nombre ya está en uso.';
+      loginErrorEl.style.display = 'block';
+      return;
+    }
+    var registeredUsers = getRegisteredUsers();
+    if(registeredUsers[regKey]){
+      loginErrorEl.textContent = 'Ese nombre ya está en uso.';
+      loginErrorEl.style.display = 'block';
+      return;
+    }
+    registeredUsers[regKey] = { name: name, pass: pass };
+    saveRegisteredUsers(registeredUsers);
+
+    currentUser = { name: name, role:'usuario' };
+    logActivity({ type:'login', role:'usuario', name: currentUser.name, ts: Date.now() });
+    showAppScreen();
+  }
+
+  function resetToLogin(){
+    currentUser = null;
+    loginNameEl.value = '';
+    loginPassEl.value = '';
+    loginPassConfirmEl.value = '';
+    authMode = 'login';
+    updateAuthModeUI();
+    document.getElementById('admin-screen').classList.add('hidden');
+    document.getElementById('app-screen').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
+  }
+
+  document.getElementById('admin-logout').addEventListener('click', resetToLogin);
+  document.getElementById('app-logout').addEventListener('click', resetToLogin);
+
+  
+  function showAdminScreen(){
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app-screen').classList.add('hidden');
+    document.getElementById('admin-screen').classList.remove('hidden');
+    document.getElementById('admin-username-tag').textContent = currentUser.name + ' · admin';
+    renderAdminLog();
+  }
+
+  document.getElementById('admin-refresh').addEventListener('click', renderAdminLog);
+  document.getElementById('admin-clear').addEventListener('click', async function(){
+    try{ await window.storage.delete('activity_log', true); }catch(e){}
+    renderAdminLog();
+  });
+
+  async function renderAdminLog(){
+    var wrap = document.getElementById('admin-table-wrap');
+    var log = await getLog();
+    if(!log.length){
+      wrap.innerHTML = '<p class="admin-empty">Todavía no hay inicios de sesión ni reportes registrados.</p>';
+      return;
+    }
+    var rows = log.slice().reverse().map(function(entry){
+      var date = new Date(entry.ts);
+      var fecha = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+      if(entry.type === 'login'){
+        return '<tr><td class="mono">'+fecha+'</td><td><span class="tag tag-login">Inicio sesión</span></td>' +
+               '<td>'+escapeHtml(entry.name)+'</td><td class="mono">Perfil: '+escapeHtml(entry.role)+'</td></tr>';
+      }
+      var detail = 'Surtidor: '+escapeHtml(entry.station)+' · Vehículo: '+escapeHtml(entry.vehicle)+
+                   ' · Fila: '+escapeHtml(entry.range)+' · Combustible: '+escapeHtml(entry.fuel);
+      return '<tr><td class="mono">'+fecha+'</td><td><span class="tag tag-report">Reporte</span></td>' +
+             '<td>'+escapeHtml(entry.reporter)+'</td><td class="mono">'+detail+'</td></tr>';
+    }).join('');
+    wrap.innerHTML =
+      '<table class="log-table"><thead><tr><th>Fecha y hora</th><th>Tipo</th><th>Usuario</th><th>Detalle</th></tr></thead>' +
+      '<tbody>'+rows+'</tbody></table>';
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  
+  function showAppScreen(){
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('admin-screen').classList.add('hidden');
+    document.getElementById('app-screen').classList.remove('hidden');
+    document.getElementById('app-username-tag').textContent = currentUser.name + ' · usuario';
+    if(!mapInited){ initMap(); mapInited = true; }
+    setTimeout(function(){ if(map) map.invalidateSize(); }, 60);
+  }
+
+  function initMap(){
+    var center = [-14.8311, -64.8966];
+    map = L.map('map', { zoomControl:true }).setView(center, 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    STATIONS.forEach(function(st){
+      var marker = L.marker([st.lat, st.lng], { icon: buildIcon(st.id, false) }).addTo(map);
+      marker.on('click', function(){ openStation(st.id); });
+      marker.bindTooltip(st.name, { direction:'top', offset:[0,-10] });
+      markers[st.id] = marker;
+    });
+  }
+
+  function buildIcon(stationId, selected){
+    var color = currentColor(stationId);
+    var ring = selected ? ' selected' : '';
+    var html =
+      '<div class="pump-marker'+ring+'">' +
+      '<svg width="34" height="34" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">' +
+      '<circle cx="12" cy="12" r="10.5" fill="'+color+'" stroke="#1c2a22" stroke-width="1.3"/>' +
+      '<g transform="translate(5.2,4.6)">' +
+      '<rect x="0" y="0" width="7.6" height="11.6" rx="1" fill="#faf6ec" stroke="#1c2a22" stroke-width="0.9"/>' +
+      '<rect x="1.1" y="1.1" width="5.4" height="3.2" fill="'+color+'" opacity="0.55"/>' +
+      '<path d="M7.6 4h1.9a1.3 1.3 0 0 1 1.3 1.3v4.6a0.95 0.95 0 1 0 1.9 0" stroke="#1c2a22" stroke-width="1" fill="none" stroke-linecap="round"/>' +
+      '</g></svg></div>';
+    return L.divIcon({ html: html, className:'', iconSize:[34,34], iconAnchor:[17,30] });
+  }
+
+  function currentColor(stationId){
+    var r = activeReports[stationId];
+    if(r && (Date.now() - r.ts) < REPORT_TTL_MS) return COLORS[r.range];
+    return COLORS.neutral;
+  }
+
+  function refreshMarker(stationId){
+    if(!markers[stationId]) return;
+    markers[stationId].setIcon(buildIcon(stationId, stationId === selectedStationId));
+  }
+
+  
+  function openStation(stationId){
+    selectedStationId = stationId;
+    draftSelection = { vehicle:null, range:null, fuel:null };
+    Object.keys(markers).forEach(function(id){ refreshMarker(id); });
+    renderSidebar();
+  }
+
+  function renderSidebar(){
+    var st = STATIONS.find(function(s){ return s.id === selectedStationId; });
+    var inner = document.getElementById('sidebar-inner');
+    if(!st){
+      inner.innerHTML = document.getElementById('empty-state').outerHTML;
+      return;
+    }
+
+    inner.innerHTML =
+      '<p class="station-eyebrow">Surtidor verificado</p>' +
+      '<h2 class="station-name">'+escapeHtml(st.name)+'</h2>' +
+      '<p class="station-address">'+escapeHtml(st.address)+'</p>' +
+      '<div id="status-card-zone"></div>' +
+      '<div class="form-section-title">Tipo de vehículo</div>' +
+      '<div class="chip-row" id="vehicle-row">' +
+        '<button class="opt-btn" data-vehicle="Auto">🚗 Auto</button>' +
+        '<button class="opt-btn" data-vehicle="Moto">🏍️ Moto</button>' +
+      '</div>' +
+      '<div class="form-section-title">Largo de la fila (vehículos)</div>' +
+      '<div class="chip-row" id="range-row">' +
+        RANGE_OPTIONS.map(function(r){ return '<button class="opt-btn" data-range="'+r+'">'+r+'</button>'; }).join('') +
+      '</div>' +
+      '<div class="form-section-title">Combustible que está vendiendo</div>' +
+      '<div class="chip-row" id="fuel-row">' +
+        FUEL_OPTIONS.map(function(f){ return '<button class="opt-btn fuel-btn" data-fuel="'+f+'">'+f+'</button>'; }).join('') +
+      '</div>' +
+      '<p class="form-warn" id="form-warn">Selecciona vehículo, fila y combustible antes de enviar.</p>' +
+      '<p class="report-ok" id="report-ok">Reporte enviado.</p>' +
+      '<button class="submit-report-btn" id="submit-report">Enviar reporte</button>';
+
+    bindFormEvents();
+    renderStatusZone();
+  }
+
+  function bindFormEvents(){
+    document.querySelectorAll('#vehicle-row .opt-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        draftSelection.vehicle = btn.getAttribute('data-vehicle');
+        document.querySelectorAll('#vehicle-row .opt-btn').forEach(function(b){ b.classList.remove('selected'); });
+        btn.classList.add('selected');
+      });
+    });
+    document.querySelectorAll('#range-row .opt-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        draftSelection.range = btn.getAttribute('data-range');
+        document.querySelectorAll('#range-row .opt-btn').forEach(function(b){ b.classList.remove('selected'); });
+        btn.classList.add('selected');
+      });
+    });
+    document.querySelectorAll('#fuel-row .opt-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        draftSelection.fuel = btn.getAttribute('data-fuel');
+        document.querySelectorAll('#fuel-row .opt-btn').forEach(function(b){ b.classList.remove('selected'); });
+        btn.classList.add('selected');
+      });
+    });
+    document.getElementById('submit-report').addEventListener('click', submitReport);
+  }
+
+  function submitReport(){
+    var warn = document.getElementById('form-warn');
+    var ok = document.getElementById('report-ok');
+    if(!draftSelection.vehicle || !draftSelection.range || !draftSelection.fuel){
+      warn.style.display = 'block';
+      ok.style.display = 'none';
+      return;
+    }
+    warn.style.display = 'none';
+
+    var stationId = selectedStationId;
+    var report = {
+      vehicle: draftSelection.vehicle,
+      range: draftSelection.range,
+      fuel: draftSelection.fuel,
+      ts: Date.now(),
+      reporter: currentUser.name
+    };
+    activeReports[stationId] = report;
+    refreshMarker(stationId);
+
+    if(timers[stationId]) clearInterval(timers[stationId]);
+    timers[stationId] = setInterval(function(){ tickStation(stationId); }, 1000);
+
+    logActivity({
+      type:'report',
+      reporter: currentUser.name,
+      station: STATIONS.find(function(s){ return s.id === stationId; }).name,
+      vehicle: report.vehicle,
+      range: report.range,
+      fuel: report.fuel,
+      ts: report.ts
+    });
+
+    ok.style.display = 'block';
+    renderStatusZone();
+  }
+
+  function tickStation(stationId){
+    var r = activeReports[stationId];
+    if(!r){ clearInterval(timers[stationId]); return; }
+    var elapsed = Date.now() - r.ts;
+    if(elapsed >= REPORT_TTL_MS){
+      delete activeReports[stationId];
+      clearInterval(timers[stationId]);
+      delete timers[stationId];
+      refreshMarker(stationId);
+      if(stationId === selectedStationId) renderStatusZone();
+      return;
+    }
+    refreshMarker(stationId);
+    if(stationId === selectedStationId) renderStatusZone();
+  }
+
+  function renderStatusZone(){
+    var zone = document.getElementById('status-card-zone');
+    if(!zone) return;
+    var stationId = selectedStationId;
+    var r = activeReports[stationId];
+    var fresh = r && (Date.now() - r.ts) < REPORT_TTL_MS;
+
+    if(!fresh){
+      zone.innerHTML =
+        '<div class="status-card is-empty">' +
+          '<p class="status-label">Estado actual</p>' +
+          '<p class="status-blank-text">Sin reportes recientes en este surtidor. Sé el primero en reportar la fila y el combustible disponible.</p>' +
+        '</div>';
+      return;
+    }
+
+    var remaining = Math.max(0, REPORT_TTL_MS - (Date.now() - r.ts));
+    var pct = (remaining / REPORT_TTL_MS) * 100;
+    var mins = Math.ceil(remaining / 60000);
+    var color = COLORS[r.range];
+
+    zone.innerHTML =
+      '<div class="status-card">' +
+        '<p class="status-label">Estado actual · reportado por '+escapeHtml(r.reporter)+'</p>' +
+        '<div class="status-grid">' +
+          '<div class="status-chip"><span class="chip-k">Vehículo</span><span class="chip-v">'+escapeHtml(r.vehicle)+'</span></div>' +
+          '<div class="status-chip"><span class="chip-k">Fila</span><span class="chip-v">'+escapeHtml(r.range)+'</span></div>' +
+          '<div class="status-chip"><span class="chip-k">Combustible</span><span class="chip-v" style="font-size:12.5px;">'+escapeHtml(r.fuel)+'</span></div>' +
+        '</div>' +
+        '<div class="gauge-wrap">' +
+          '<div class="gauge-row"><span>F</span><span>vigencia del reporte</span><span>E</span></div>' +
+          '<div class="gauge-track"><div class="gauge-fill" style="width:'+pct+'%; background:'+color+';"></div></div>' +
+          '<div class="gauge-foot">Se borra en <b>'+mins+' min</b></div>' +
+        '</div>' +
+      '</div>';
+  }
+
+})();
+</script>
+</body>
+</html>
