@@ -35,6 +35,16 @@
   button:focus-visible, input:focus-visible{outline:2px solid var(--river); outline-offset:2px;}
 
   
+  #boot-loading{
+    flex:1;display:flex;align-items:center;justify-content:center;text-align:center;
+    background:var(--bg-deep);color:#cfe0d6;font-family:var(--font-mono);font-size:13px;
+    padding:24px;line-height:1.6;
+  }
+  #boot-loading .boot-box{max-width:340px;}
+  #boot-loading .boot-warn{color:#f3d9b1;}
+  #boot-loading code{background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:4px;}
+
+  
   #login-screen{
     flex:1;display:flex;align-items:center;justify-content:center;
     background:
@@ -63,6 +73,7 @@
     font-weight:600;font-size:15px;margin-top:6px;transition:background .15s ease;
   }
   .login-btn:hover{background:var(--river);}
+  .login-btn:disabled{opacity:.6;cursor:not-allowed;}
   .login-error{
     margin-top:12px;font-size:13px;color:#fff;background:var(--q4);border-radius:7px;padding:9px 11px;
     display:none;
@@ -177,6 +188,7 @@
   .admin-btn:hover{border-color:var(--river);}
   .admin-btn.danger{color:var(--q4);}
   .admin-btn.danger:hover{border-color:var(--q4);}
+  .admin-btn:disabled{opacity:.55;cursor:not-allowed;}
 
   table.log-table{width:100%;border-collapse:collapse;font-size:12.5px;}
   table.log-table th{
@@ -282,7 +294,12 @@
 <div id="root">
 
   
-  <section id="login-screen">
+  <div id="boot-loading">
+    <div class="boot-box">Verificando sesión…</div>
+  </div>
+
+  
+  <section id="login-screen" class="hidden">
     <svg class="river-line" viewBox="0 0 800 600" preserveAspectRatio="none">
       <path d="M-20,420 C150,380 220,500 380,460 C540,420 600,300 800,340" stroke="#2f86a8" stroke-width="3" fill="none"/>
       <path d="M-20,500 C180,470 260,560 420,520 C600,480 660,400 820,430" stroke="#e0942f" stroke-width="2" fill="none"/>
@@ -306,7 +323,7 @@
       <button class="login-btn" id="login-submit">Ingresar</button>
       <p class="login-error" id="login-error">Nombre o contraseña incorrectos. </p>
       <p class="login-toggle" id="login-toggle-msg">¿No tenés perfil? <a href="#" id="toggle-auth-mode">Creá uno</a></p>
-      <p class="login-hint">Ingrese como administrador (consulta el registro). O ingrese como usuario (reporta). El acceso a administrador requiere un permiso.</p>
+      <p class="login-hint">Cualquier persona puede crear un perfil y reportar filas. Los datos se sincronizan en vivo entre todos los usuarios. El acceso de administrador (ver el registro de actividad) se habilita a mano, por proyecto.</p>
     </div>
   </section>
 
@@ -329,14 +346,14 @@
         <div class="admin-head">
           <div>
             <p class="admin-h-title">Registro de actividad</p>
-            <p class="admin-h-sub">Inicios de sesión y reportes enviados por el perfil de usuario</p>
+            <p class="admin-h-sub">Inicios de sesión y reportes, sincronizados en vivo desde todos los dispositivos</p>
           </div>
           <div class="admin-actions">
             <button class="admin-btn" id="admin-refresh">Actualizar</button>
             <button class="admin-btn danger" id="admin-clear">Vaciar registro</button>
           </div>
         </div>
-        <div id="admin-table-wrap"></div>
+        <div id="admin-table-wrap"><p class="admin-empty">Cargando…</p></div>
       </div>
     </div>
   </section>
@@ -348,7 +365,7 @@
         <div class="topbar-badge">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="10" height="16" rx="1.2" fill="#1c2a22"/><path d="M15 8h2.2A2 2 0 0 1 19 10v6.2a1.8 1.8 0 1 1-3.6 0V12" stroke="#1c2a22" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
         </div>
-        <div class="topbar-title">Surtidores de Trinidad, Beni<small>Filas reportadas por usuarios</small></div>
+        <div class="topbar-title">Surtidores de Trinidad, Beni<small>Filas reportadas por usuarios · en vivo</small></div>
       </div>
       <div class="topbar-right">
         <span class="topbar-user" id="app-username-tag"></span>
@@ -382,10 +399,67 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script>
-(function(){
+<script type="module">
 
   
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
+  import {
+    getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+    createUserWithEmailAndPassword, signOut
+  } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
+  import {
+    getFirestore, collection, doc, setDoc, addDoc, getDocs,
+    onSnapshot, query, orderBy, limit, writeBatch
+  } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
+
+  /* ============================================================
+     🔧 PASO 1 — Pegá acá tu configuración de Firebase
+     La encontrás en: Firebase Console → ⚙️ Configuración del
+     proyecto → Tus apps → SDK setup and configuration → Config
+  ============================================================ */
+  // Import the functions you need from the SDKs you need
+  
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyDQBMQcBSc4oR6sMjjheGbywxtiJOM9K04",
+    authDomain: "fuelmap-30a6b.firebaseapp.com",
+    projectId: "fuelmap-30a6b",
+    storageBucket: "fuelmap-30a6b.firebasestorage.app",
+    messagingSenderId: "813415067361",
+    appId: "1:813415067361:web:e65460831292c956dd51a0"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+
+  const bootLoadingEl = document.getElementById('boot-loading');
+
+  if(firebaseConfig.apiKey === 'TU_API_KEY'){
+    bootLoadingEl.innerHTML =
+      '<div class="boot-box boot-warn">⚠️ Todavía no configuraste Firebase.<br><br>' +
+      'Abrí este archivo .html y pegá tu configuración real en la constante ' +
+      '<code>firebaseConfig</code> (buscá el comentario "PASO 1").</div>';
+  } else {
+    try {
+      runApp();
+    } catch(err){
+      console.error('Error inicializando Firebase:', err);
+      bootLoadingEl.innerHTML =
+        '<div class="boot-box boot-warn">⚠️ No se pudo iniciar Firebase.<br><br>' +
+        'Revisá que los valores de <code>firebaseConfig</code> sean correctos y que ' +
+        'tu conexión a internet funcione. Detalle en la consola del navegador.</div>';
+    }
+  }
+
+  function runApp(){
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
   
   var STATIONS = [
     { id:'chaparral', name:'Surtidor El Chaparral', address:'53GV+2PM, Trinidad, Bolivia', lat:-14.8249006, lng:-64.9056923 },
@@ -395,48 +469,37 @@
     { id:'pompeya',   name:'Estación de Servicios Pompeya', address:'533V+6WH, Trinidad, Bolivia', lat:-14.8469406, lng:-64.9051314 }
   ];
 
-  var CREDENTIALS = {
-    admin: { name:'AdminPub', pass:'19671967' },
-    user:  { name:'Usuario', pass:'123' }
-  };
-
   var RANGE_OPTIONS = ['<5','5-10','10-15','>20'];
   var FUEL_OPTIONS = ['Gasolina','Diésel','Gasolina amarilla'];
   var REPORT_TTL_MS = 1800000;
-
   var COLORS = { '<5':'#4f9d5c', '5-10':'#e0b13a', '10-15':'#d97a35', '>20':'#c0453a', neutral:'#93948c' };
 
   
-  var currentUser = null;           
-  var map = null, mapInited = false;
-  var markers = {};                  
-  var activeReports = {};            
-  var timers = {};                  
-  var selectedStationId = null;
-  var draftSelection = { vehicle:null, range:null, fuel:null };
+  var FAKE_EMAIL_DOMAIN = '@surtidores-trinidad.app';
+  function toAuthEmail(username){
+    var clean = username.trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9._-]/g, '');
+    if(!clean) clean = 'usuario';
+    return clean + FAKE_EMAIL_DOMAIN;
+  }
 
   
-  function getLog(){
-    const data = localStorage.getItem("activity_log");
-    return data ? JSON.parse(data) : [];
-}
-  function saveLog(arr){
-    const trimmed = arr.slice(-200);
-    localStorage.setItem("activity_log", JSON.stringify(trimmed));
-}
-  function logActivity(entry){
-    const log = getLog();
-    log.push(entry);
-    saveLog(log);
-}
+  var currentUser = null;
+  var map = null, mapInited = false;
+  var markers = {};
+  var activeReports = {};
+  var selectedStationId = null;
+  var draftSelection = { vehicle:null, range:null, fuel:null };
+  var profileUnsub = null, reportsUnsub = null, logUnsub = null, tickTimer = null;
 
-  function getRegisteredUsers(){
-    var data = localStorage.getItem('registered_users');
-    return data ? JSON.parse(data) : {};
-}
-  function saveRegisteredUsers(obj){
-    localStorage.setItem('registered_users', JSON.stringify(obj));
-}
+  
+  function logActivity(entry){
+    var payload = Object.assign({}, entry, { ts: Date.now() });
+    addDoc(collection(db, 'activity_log'), payload).catch(function(err){
+      console.error('No se pudo registrar la actividad:', err);
+    });
+  }
 
   
   var loginNameEl = document.getElementById('login-name');
@@ -448,7 +511,7 @@
   var loginToggleMsgEl = document.getElementById('login-toggle-msg');
   var authMode = 'login';
 
-  document.getElementById('login-submit').addEventListener('click', handleAuthSubmit);
+  loginSubmitBtn.addEventListener('click', handleAuthSubmit);
   loginPassEl.addEventListener('keydown', function(e){ if(e.key === 'Enter') handleAuthSubmit(); });
   loginNameEl.addEventListener('keydown', function(e){ if(e.key === 'Enter') handleAuthSubmit(); });
   loginToggleMsgEl.addEventListener('click', function(e){
@@ -469,8 +532,13 @@
       loginSubmitBtn.textContent = 'Ingresar';
       confirmPassFieldEl.classList.add('hidden');
       loginToggleMsgEl.innerHTML = '¿No tenés perfil? <a href="#" id="toggle-auth-mode">Creá uno</a>';
-      loginErrorEl.textContent = 'Nombre o contraseña incorrectos.';
     }
+  }
+
+  function setAuthBusy(busy){
+    loginSubmitBtn.disabled = busy;
+    if(busy){ loginSubmitBtn.textContent = 'Un momento…'; }
+    else { loginSubmitBtn.textContent = authMode === 'register' ? 'Crear perfil' : 'Ingresar'; }
   }
 
   function handleAuthSubmit(){
@@ -482,28 +550,18 @@
     var name = loginNameEl.value.trim();
     var pass = loginPassEl.value;
     loginErrorEl.style.display = 'none';
-
-    if(name === CREDENTIALS.admin.name && pass === CREDENTIALS.admin.pass){
-      currentUser = { name: CREDENTIALS.admin.name, role:'admin' };
-      logActivity({ type:'login', role:'admin', name: currentUser.name, ts: Date.now() });
-      showAdminScreen();
+    if(!name || !pass){
+      loginErrorEl.textContent = 'Completá nombre y contraseña.';
+      loginErrorEl.style.display = 'block';
       return;
     }
-    if(name === CREDENTIALS.user.name && pass === CREDENTIALS.user.pass){
-      currentUser = { name: CREDENTIALS.user.name, role:'usuario' };
-      logActivity({ type:'login', role:'usuario', name: currentUser.name, ts: Date.now() });
-      showAppScreen();
-      return;
-    }
-    var registeredUsers = getRegisteredUsers();
-    var regKey = name.toLowerCase();
-    if(registeredUsers[regKey] && registeredUsers[regKey].pass === pass){
-      currentUser = { name: registeredUsers[regKey].name, role:'usuario' };
-      logActivity({ type:'login', role:'usuario', name: currentUser.name, ts: Date.now() });
-      showAppScreen();
-      return;
-    }
-    loginErrorEl.style.display = 'block';
+    setAuthBusy(true);
+    signInWithEmailAndPassword(auth, toAuthEmail(name), pass).catch(function(err){
+      setAuthBusy(false);
+      loginErrorEl.textContent = 'Nombre o contraseña incorrectos.';
+      loginErrorEl.style.display = 'block';
+    });
+    
   }
 
   function attemptRegister(){
@@ -522,40 +580,89 @@
       loginErrorEl.style.display = 'block';
       return;
     }
-    var regKey = name.toLowerCase();
-    if(regKey === CREDENTIALS.admin.name.toLowerCase() || regKey === CREDENTIALS.user.name.toLowerCase()){
-      loginErrorEl.textContent = 'Ese nombre ya está en uso.';
+    if(pass.length < 6){
+      loginErrorEl.textContent = 'La contraseña debe tener al menos 6 caracteres.';
       loginErrorEl.style.display = 'block';
       return;
     }
-    var registeredUsers = getRegisteredUsers();
-    if(registeredUsers[regKey]){
-      loginErrorEl.textContent = 'Ese nombre ya está en uso.';
-      loginErrorEl.style.display = 'block';
-      return;
-    }
-    registeredUsers[regKey] = { name: name, pass: pass };
-    saveRegisteredUsers(registeredUsers);
 
-    currentUser = { name: name, role:'usuario' };
-    logActivity({ type:'login', role:'usuario', name: currentUser.name, ts: Date.now() });
-    showAppScreen();
+    setAuthBusy(true);
+    createUserWithEmailAndPassword(auth, toAuthEmail(name), pass)
+      .then(function(cred){
+        return setDoc(doc(db, 'users', cred.user.uid), {
+          name: name,
+          role: 'usuario',
+          createdAt: Date.now()
+        });
+      })
+      .catch(function(err){
+        setAuthBusy(false);
+        if(err.code === 'auth/email-already-in-use'){
+          loginErrorEl.textContent = 'Ese nombre ya está en uso.';
+        } else if(err.code === 'auth/weak-password'){
+          loginErrorEl.textContent = 'La contraseña es muy débil (mínimo 6 caracteres).';
+        } else {
+          loginErrorEl.textContent = 'No se pudo crear el perfil. Probá de nuevo.';
+        }
+        loginErrorEl.style.display = 'block';
+      });
+    
   }
 
-  function resetToLogin(){
+  document.getElementById('admin-logout').addEventListener('click', function(){ signOut(auth); });
+  document.getElementById('app-logout').addEventListener('click', function(){ signOut(auth); });
+
+  function resetToLoginUI(){
     currentUser = null;
+    selectedStationId = null;
     loginNameEl.value = '';
     loginPassEl.value = '';
     loginPassConfirmEl.value = '';
     authMode = 'login';
     updateAuthModeUI();
+    setAuthBusy(false);
     document.getElementById('admin-screen').classList.add('hidden');
     document.getElementById('app-screen').classList.add('hidden');
     document.getElementById('login-screen').classList.remove('hidden');
   }
 
-  document.getElementById('admin-logout').addEventListener('click', resetToLogin);
-  document.getElementById('app-logout').addEventListener('click', resetToLogin);
+  function hideBootLoading(){
+    bootLoadingEl.classList.add('hidden');
+  }
+
+  
+  onAuthStateChanged(auth, function(user){
+    if(profileUnsub){ profileUnsub(); profileUnsub = null; }
+    stopReportsListener();
+    stopLogListener();
+    stopTicking();
+
+    if(!user){
+      hideBootLoading();
+      resetToLoginUI();
+      return;
+    }
+
+    profileUnsub = onSnapshot(doc(db, 'users', user.uid), function(snap){
+      if(!snap.exists()) return; 
+      var data = snap.data();
+      var isFirstRoute = !currentUser || currentUser.uid !== user.uid;
+      currentUser = {
+        uid: user.uid,
+        name: data.name || 'Usuario',
+        role: data.role === 'admin' ? 'admin' : 'usuario'
+      };
+      hideBootLoading();
+      if(isFirstRoute){
+        logActivity({ type:'login', role: currentUser.role, name: currentUser.name });
+      }
+      if(currentUser.role === 'admin') showAdminScreen();
+      else showAppScreen();
+    }, function(err){
+      console.error('Error leyendo el perfil:', err);
+      hideBootLoading();
+    });
+  });
 
   
   function showAdminScreen(){
@@ -563,23 +670,63 @@
     document.getElementById('app-screen').classList.add('hidden');
     document.getElementById('admin-screen').classList.remove('hidden');
     document.getElementById('admin-username-tag').textContent = currentUser.name + ' · admin';
-    renderAdminLog();
+    startLogListener();
   }
 
-  document.getElementById('admin-refresh').addEventListener('click', renderAdminLog);
-  document.getElementById('admin-clear').addEventListener('click', async function(){
-    try{ await window.storage.delete('activity_log', true); }catch(e){}
-    renderAdminLog();
+  document.getElementById('admin-refresh').addEventListener('click', function(){
+    var q = query(collection(db, 'activity_log'), orderBy('ts', 'desc'), limit(200));
+    getDocs(q).then(function(snapshot){
+      renderAdminLog(snapshot.docs.map(function(d){ return d.data(); }));
+    }).catch(function(err){ console.error('Error actualizando el registro:', err); });
   });
 
-  async function renderAdminLog(){
+  document.getElementById('admin-clear').addEventListener('click', function(){
+    if(!confirm('¿Vaciar todo el registro de actividad? Esta acción no se puede deshacer.')) return;
+    var clearBtn = document.getElementById('admin-clear');
+    clearBtn.disabled = true;
+    getDocs(collection(db, 'activity_log')).then(function(snapshot){
+      var docs = snapshot.docs;
+      var chunks = [];
+      for(var i=0; i<docs.length; i+=450){ chunks.push(docs.slice(i, i+450)); }
+      var chain = Promise.resolve();
+      chunks.forEach(function(chunk){
+        chain = chain.then(function(){
+          var batch = writeBatch(db);
+          chunk.forEach(function(d){ batch.delete(d.ref); });
+          return batch.commit();
+        });
+      });
+      return chain;
+    }).catch(function(err){
+      console.error('Error vaciando el registro:', err);
+      alert('No se pudo vaciar el registro. Mirá la consola para más detalle.');
+    }).finally(function(){
+      clearBtn.disabled = false;
+    });
+  });
+
+  function startLogListener(){
+    if(logUnsub) return;
+    var q = query(collection(db, 'activity_log'), orderBy('ts', 'desc'), limit(200));
+    logUnsub = onSnapshot(q, function(snapshot){
+      renderAdminLog(snapshot.docs.map(function(d){ return d.data(); }));
+    }, function(err){
+      console.error('Error escuchando el registro:', err);
+      document.getElementById('admin-table-wrap').innerHTML =
+        '<p class="admin-empty">No se pudo cargar el registro.</p>';
+    });
+  }
+  function stopLogListener(){
+    if(logUnsub){ logUnsub(); logUnsub = null; }
+  }
+
+  function renderAdminLog(entries){
     var wrap = document.getElementById('admin-table-wrap');
-    var log = await getLog();
-    if(!log.length){
+    if(!entries.length){
       wrap.innerHTML = '<p class="admin-empty">Todavía no hay inicios de sesión ni reportes registrados.</p>';
       return;
     }
-    var rows = log.slice().reverse().map(function(entry){
+    var rows = entries.map(function(entry){
       var date = new Date(entry.ts);
       var fecha = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
       if(entry.type === 'login'){
@@ -610,6 +757,9 @@
     document.getElementById('app-username-tag').textContent = currentUser.name + ' · usuario';
     if(!mapInited){ initMap(); mapInited = true; }
     setTimeout(function(){ if(map) map.invalidateSize(); }, 60);
+    renderSidebar();
+    startReportsListener();
+    startTicking();
   }
 
   function initMap(){
@@ -666,7 +816,8 @@
     var st = STATIONS.find(function(s){ return s.id === selectedStationId; });
     var inner = document.getElementById('sidebar-inner');
     if(!st){
-      inner.innerHTML = document.getElementById('empty-state').outerHTML;
+      inner.innerHTML = document.getElementById('empty-state') ? document.getElementById('empty-state').outerHTML :
+        '<div class="empty-state"><p>Toca un marcador en el mapa para ver el estado del surtidor.</p></div>';
       return;
     }
 
@@ -725,6 +876,7 @@
     var warn = document.getElementById('form-warn');
     var ok = document.getElementById('report-ok');
     if(!draftSelection.vehicle || !draftSelection.range || !draftSelection.fuel){
+      warn.textContent = 'Selecciona vehículo, fila y combustible antes de enviar.';
       warn.style.display = 'block';
       ok.style.display = 'none';
       return;
@@ -732,47 +884,72 @@
     warn.style.display = 'none';
 
     var stationId = selectedStationId;
+    var stationName = STATIONS.find(function(s){ return s.id === stationId; }).name;
     var report = {
       vehicle: draftSelection.vehicle,
       range: draftSelection.range,
       fuel: draftSelection.fuel,
       ts: Date.now(),
-      reporter: currentUser.name
+      reporterUid: currentUser.uid,
+      reporterName: currentUser.name
     };
-    activeReports[stationId] = report;
-    refreshMarker(stationId);
 
-    if(timers[stationId]) clearInterval(timers[stationId]);
-    timers[stationId] = setInterval(function(){ tickStation(stationId); }, 1000);
+    var submitBtn = document.getElementById('submit-report');
+    submitBtn.disabled = true;
 
-    logActivity({
-      type:'report',
-      reporter: currentUser.name,
-      station: STATIONS.find(function(s){ return s.id === stationId; }).name,
-      vehicle: report.vehicle,
-      range: report.range,
-      fuel: report.fuel,
-      ts: report.ts
-    });
-
-    ok.style.display = 'block';
-    renderStatusZone();
+    setDoc(doc(db, 'reports', stationId), report)
+      .then(function(){
+        logActivity({
+          type:'report',
+          reporter: currentUser.name,
+          station: stationName,
+          vehicle: report.vehicle,
+          range: report.range,
+          fuel: report.fuel
+        });
+        ok.style.display = 'block';
+      })
+      .catch(function(err){
+        console.error('Error enviando el reporte:', err);
+        warn.textContent = 'No se pudo enviar el reporte. Probá de nuevo.';
+        warn.style.display = 'block';
+      })
+      .finally(function(){
+        submitBtn.disabled = false;
+      });
   }
 
-  function tickStation(stationId){
-    var r = activeReports[stationId];
-    if(!r){ clearInterval(timers[stationId]); return; }
-    var elapsed = Date.now() - r.ts;
-    if(elapsed >= REPORT_TTL_MS){
-      delete activeReports[stationId];
-      clearInterval(timers[stationId]);
-      delete timers[stationId];
-      refreshMarker(stationId);
-      if(stationId === selectedStationId) renderStatusZone();
-      return;
-    }
-    refreshMarker(stationId);
-    if(stationId === selectedStationId) renderStatusZone();
+  
+  function startReportsListener(){
+    if(reportsUnsub) return;
+    reportsUnsub = onSnapshot(collection(db, 'reports'), function(snapshot){
+      snapshot.docChanges().forEach(function(change){
+        var stationId = change.doc.id;
+        if(change.type === 'removed'){
+          delete activeReports[stationId];
+        } else {
+          activeReports[stationId] = change.doc.data();
+        }
+        refreshMarker(stationId);
+        if(stationId === selectedStationId) renderStatusZone();
+      });
+    }, function(err){
+      console.error('Error escuchando reportes:', err);
+    });
+  }
+  function stopReportsListener(){
+    if(reportsUnsub){ reportsUnsub(); reportsUnsub = null; }
+  }
+
+  function startTicking(){
+    if(tickTimer) return;
+    tickTimer = setInterval(function(){
+      Object.keys(activeReports).forEach(function(stationId){ refreshMarker(stationId); });
+      if(selectedStationId) renderStatusZone();
+    }, 1000);
+  }
+  function stopTicking(){
+    if(tickTimer){ clearInterval(tickTimer); tickTimer = null; }
   }
 
   function renderStatusZone(){
@@ -798,7 +975,7 @@
 
     zone.innerHTML =
       '<div class="status-card">' +
-        '<p class="status-label">Estado actual · reportado por '+escapeHtml(r.reporter)+'</p>' +
+        '<p class="status-label">Estado actual · reportado por '+escapeHtml(r.reporterName)+'</p>' +
         '<div class="status-grid">' +
           '<div class="status-chip"><span class="chip-k">Vehículo</span><span class="chip-v">'+escapeHtml(r.vehicle)+'</span></div>' +
           '<div class="status-chip"><span class="chip-k">Fila</span><span class="chip-v">'+escapeHtml(r.range)+'</span></div>' +
@@ -812,7 +989,10 @@
       '</div>';
   }
 
-})();
+  } 
+
 </script>
+</body>
+</html>
 </body>
 </html>
