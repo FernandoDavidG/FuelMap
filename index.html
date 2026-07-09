@@ -476,6 +476,7 @@
   var FUEL_OPTIONS = ['Gasolina','Diésel','Gasolina amarilla'];
   var REPORT_TTL_MS = 1800000;
   var COLORS = { '<5':'#4f9d5c', '5-10':'#e0b13a', '10-15':'#d97a35', '>20':'#c0453a', neutral:'#93948c' };
+  var RANGE_MIDPOINT = { '<5':2.5, '5-10':7.5, '10-15':12.5, '>20':22.5 };
 
   
   var FAKE_EMAIL_DOMAIN = '@surtidores-trinidad.app';
@@ -767,7 +768,16 @@
 
   function initMap(){
     var center = [-14.8311, -64.8966];
-    map = L.map('map', { zoomControl:true }).setView(center, 14);
+    var TRINIDAD_BOUNDS = L.latLngBounds(
+      L.latLng(-14.88, -64.95),
+      L.latLng(-14.775, -64.85)
+    );
+    map = L.map('map', {
+      zoomControl:true,
+      maxBounds: TRINIDAD_BOUNDS,
+      maxBoundsViscosity: 1.0,
+      minZoom: 13
+    }).setView(center, 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap'
@@ -796,9 +806,56 @@
     return L.divIcon({ html: html, className:'', iconSize:[34,34], iconAnchor:[17,30] });
   }
 
+  function stationReports(stationId){
+    var now = Date.now();
+    var list = [];
+    Object.keys(activeReports).forEach(function(docId){
+      var r = activeReports[docId];
+      if(r.stationId === stationId && (now - r.ts) < REPORT_TTL_MS) list.push(r);
+    });
+    return list;
+  }
+
+  function mostCommon(counts){
+    var best = null, bestN = -1;
+    Object.keys(counts).forEach(function(k){
+      if(counts[k] > bestN){ bestN = counts[k]; best = k; }
+    });
+    return best;
+  }
+
+  function stationAggregate(stationId){
+    var reports = stationReports(stationId);
+    if(!reports.length) return null;
+
+    var sumRange = 0, maxTs = 0;
+    var vehicleCount = {}, fuelCount = {};
+    reports.forEach(function(r){
+      sumRange += RANGE_MIDPOINT[r.range];
+      vehicleCount[r.vehicle] = (vehicleCount[r.vehicle] || 0) + 1;
+      fuelCount[r.fuel] = (fuelCount[r.fuel] || 0) + 1;
+      if(r.ts > maxTs) maxTs = r.ts;
+    });
+    var avgValue = sumRange / reports.length;
+
+    var closestRange = RANGE_OPTIONS[0], closestDist = Infinity;
+    RANGE_OPTIONS.forEach(function(opt){
+      var dist = Math.abs(RANGE_MIDPOINT[opt] - avgValue);
+      if(dist < closestDist){ closestDist = dist; closestRange = opt; }
+    });
+
+    return {
+      count: reports.length,
+      range: closestRange,
+      vehicle: mostCommon(vehicleCount),
+      fuel: mostCommon(fuelCount),
+      lastTs: maxTs
+    };
+  }
+
   function currentColor(stationId){
-    var r = activeReports[stationId];
-    if(r && (Date.now() - r.ts) < REPORT_TTL_MS) return COLORS[r.range];
+    var agg = stationAggregate(stationId);
+    if(agg) return COLORS[agg.range];
     return COLORS.neutral;
   }
 
@@ -894,13 +951,14 @@
       fuel: draftSelection.fuel,
       ts: Date.now(),
       reporterUid: currentUser.uid,
-      reporterName: currentUser.name
+      reporterName: currentUser.name,
+      stationId: stationId
     };
 
     var submitBtn = document.getElementById('submit-report');
     submitBtn.disabled = true;
 
-    setDoc(doc(db, 'reports', stationId), report)
+    addDoc(collection(db, 'reports'), report)
       .then(function(){
         logActivity({
           type:'report',
@@ -925,14 +983,22 @@
   
   function startReportsListener(){
     if(reportsUnsub) return;
-    reportsUnsub = onSnapshot(collection(db, 'reports'), function(snapshot){
+    var q = query(collection(db, 'reports'), orderBy('ts', 'desc'), limit(500));
+    reportsUnsub = onSnapshot(q, function(snapshot){
+      var touched = {};
       snapshot.docChanges().forEach(function(change){
-        var stationId = change.doc.id;
+        var docId = change.doc.id;
         if(change.type === 'removed'){
-          delete activeReports[stationId];
+          var old = activeReports[docId];
+          if(old) touched[old.stationId] = true;
+          delete activeReports[docId];
         } else {
-          activeReports[stationId] = change.doc.data();
+          var data = change.doc.data();
+          activeReports[docId] = data;
+          touched[data.stationId] = true;
         }
+      });
+      Object.keys(touched).forEach(function(stationId){
         refreshMarker(stationId);
         if(stationId === selectedStationId) renderStatusZone();
       });
@@ -947,7 +1013,7 @@
   function startTicking(){
     if(tickTimer) return;
     tickTimer = setInterval(function(){
-      Object.keys(activeReports).forEach(function(stationId){ refreshMarker(stationId); });
+      STATIONS.forEach(function(st){ refreshMarker(st.id); });
       if(selectedStationId) renderStatusZone();
     }, 1000);
   }
@@ -959,10 +1025,9 @@
     var zone = document.getElementById('status-card-zone');
     if(!zone) return;
     var stationId = selectedStationId;
-    var r = activeReports[stationId];
-    var fresh = r && (Date.now() - r.ts) < REPORT_TTL_MS;
+    var agg = stationAggregate(stationId);
 
-    if(!fresh){
+    if(!agg){
       zone.innerHTML =
         '<div class="status-card is-empty">' +
           '<p class="status-label">Estado actual</p>' +
@@ -971,18 +1036,19 @@
       return;
     }
 
-    var remaining = Math.max(0, REPORT_TTL_MS - (Date.now() - r.ts));
+    var remaining = Math.max(0, REPORT_TTL_MS - (Date.now() - agg.lastTs));
     var pct = (remaining / REPORT_TTL_MS) * 100;
     var mins = Math.ceil(remaining / 60000);
-    var color = COLORS[r.range];
+    var color = COLORS[agg.range];
+    var labelText = agg.count === 1 ? 'basado en 1 reporte' : 'promedio de '+agg.count+' reportes';
 
     zone.innerHTML =
       '<div class="status-card">' +
-        '<p class="status-label">Estado actual · reportado por '+escapeHtml(r.reporterName)+'</p>' +
+        '<p class="status-label">Estado actual · '+labelText+'</p>' +
         '<div class="status-grid">' +
-          '<div class="status-chip"><span class="chip-k">Vehículo</span><span class="chip-v">'+escapeHtml(r.vehicle)+'</span></div>' +
-          '<div class="status-chip"><span class="chip-k">Fila</span><span class="chip-v">'+escapeHtml(r.range)+'</span></div>' +
-          '<div class="status-chip"><span class="chip-k">Combustible</span><span class="chip-v" style="font-size:12.5px;">'+escapeHtml(r.fuel)+'</span></div>' +
+          '<div class="status-chip"><span class="chip-k">Vehículo</span><span class="chip-v">'+escapeHtml(agg.vehicle)+'</span></div>' +
+          '<div class="status-chip"><span class="chip-k">Fila</span><span class="chip-v">'+escapeHtml(agg.range)+'</span></div>' +
+          '<div class="status-chip"><span class="chip-k">Combustible</span><span class="chip-v" style="font-size:12.5px;">'+escapeHtml(agg.fuel)+'</span></div>' +
         '</div>' +
         '<div class="gauge-wrap">' +
           '<div class="gauge-row"><span>F</span><span>vigencia del reporte</span><span>E</span></div>' +
