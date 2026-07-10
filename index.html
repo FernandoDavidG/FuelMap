@@ -105,6 +105,12 @@
     border-radius:7px;font-size:12.5px;font-weight:600;transition:background .15s;
   }
   .logout-btn:hover{background:rgba(255,255,255,0.12);}
+  .manual-btn{
+    border:1px solid rgba(255,255,255,0.25);background:transparent;color:#fff;padding:7px 13px;
+    border-radius:7px;font-size:12.5px;font-weight:600;transition:background .15s ease, transform .12s ease;
+  }
+  .manual-btn:hover{background:rgba(255,255,255,0.12);}
+  .manual-btn:active{transform:scale(0.94);}
 
   
   #app-content{flex:1;display:flex;min-height:0;}
@@ -207,6 +213,48 @@
   .admin-empty{padding:40px 0;text-align:center;color:var(--ink-soft);font-size:13px;}
 
   
+  .manual-overlay{
+    position:fixed;inset:0;background:rgba(15,36,32,0.62);backdrop-filter:blur(2px);
+    display:flex;align-items:center;justify-content:center;z-index:2000;padding:20px;
+  }
+  .manual-modal{
+    width:100%;max-width:440px;max-height:86vh;background:var(--bg-panel);border-radius:14px;
+    padding:26px 26px 20px;box-shadow:0 30px 60px rgba(0,0,0,0.4);position:relative;
+    border:1px solid var(--line);display:flex;flex-direction:column;
+  }
+  .manual-close{
+    position:absolute;top:14px;right:14px;border:none;background:transparent;color:var(--ink-soft);
+    font-size:15px;line-height:1;padding:6px 8px;border-radius:6px;transition:background .12s ease;
+  }
+  .manual-close:hover{background:var(--bg-panel-2);color:var(--ink);}
+  .manual-header{margin-bottom:14px;padding-right:26px;}
+  .manual-eyebrow{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--river);margin:0 0 6px;}
+  .manual-title{font-family:var(--font-display);font-size:20px;font-weight:700;margin:0;line-height:1.25;}
+  .manual-body{font-size:13.5px;line-height:1.65;color:var(--ink);overflow-y:auto;flex:1;min-height:110px;}
+  .manual-body p{margin:0 0 10px;}
+  .manual-body p:last-child{margin-bottom:0;}
+  .manual-body b{color:var(--ink);}
+  .manual-legend-mini{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .manual-legend-mini span{
+    display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--ink-soft);
+    background:var(--bg-panel-2);border-radius:6px;padding:4px 8px;
+  }
+  .manual-legend-mini i{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0;}
+  .manual-footer{margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;}
+  .manual-dots{display:flex;gap:6px;}
+  .manual-dot{width:7px;height:7px;border-radius:50%;background:var(--line);border:none;padding:0;transition:background .15s ease, transform .15s ease;}
+  .manual-dot.active{background:var(--river);transform:scale(1.3);}
+  .manual-nav{display:flex;gap:8px;}
+  .manual-nav-btn{
+    border:1.5px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;border-radius:7px;
+    font-size:12.5px;font-weight:600;transition:all .12s ease;
+  }
+  .manual-nav-btn:hover{border-color:var(--river);}
+  .manual-nav-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .manual-nav-btn.primary{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .manual-nav-btn.primary:hover{background:var(--river);border-color:var(--river);}
+
+  
   @keyframes btn-pop{
     0%  {transform:scale(1);}
     40% {transform:scale(0.90);}
@@ -235,6 +283,9 @@
 
   
   .login-card{animation:fade-up .45s cubic-bezier(.22,.68,0,1.15) both;}
+
+  
+  .manual-modal{animation:fade-up .35s cubic-bezier(.22,.68,0,1.15) both;}
 
   
   .field input{transition:border-color .15s ease, box-shadow .15s ease;}
@@ -310,7 +361,7 @@
     <div class="login-card">
       <p class="login-eyebrow">Beni · Trinidad</p>
       <h1 class="login-title">Estado de surtidores</h1>
-      <p class="login-sub">Ingresa con tu nombre y contraseña. </p>
+      <p class="login-sub">Ingrese con su nombre y contraseña. </p>
       <div class="field">
         <label for="login-name">Nombre</label>
         <input id="login-name" type="text" autocomplete="username" placeholder="Nombre de usuario">
@@ -325,7 +376,7 @@
       </div>
       <button class="login-btn" id="login-submit">Ingresar</button>
       <p class="login-error" id="login-error">Nombre o contraseña incorrectos. </p>
-      <p class="login-toggle" id="login-toggle-msg">¿No tenés perfil? <a href="#" id="toggle-auth-mode">Creá uno</a></p>
+      <p class="login-toggle" id="login-toggle-msg">¿No tiene perfil? <a href="#" id="toggle-auth-mode">Cree uno</a></p>
       <p class="login-hint">Cualquier persona puede crear un perfil y reportar filas. Los datos se sincronizan en vivo entre todos los usuarios. El acceso de administrador (ver el registro de actividad) se habilita a mano, por proyecto.</p>
     </div>
   </section>
@@ -341,6 +392,7 @@
       </div>
       <div class="topbar-right">
         <span class="topbar-user" id="admin-username-tag"></span>
+        <button class="manual-btn" id="admin-manual-btn">📖 Manual de usuario</button>
         <button class="logout-btn" id="admin-logout">Cerrar sesión</button>
       </div>
     </div>
@@ -372,6 +424,7 @@
       </div>
       <div class="topbar-right">
         <span class="topbar-user" id="app-username-tag"></span>
+        <button class="manual-btn" id="app-manual-btn">📖 Manual de usuario</button>
         <button class="logout-btn" id="app-logout">Cerrar sesión</button>
       </div>
     </div>
@@ -398,6 +451,25 @@
       </div>
     </div>
   </section>
+
+  
+  <div id="manual-overlay" class="manual-overlay hidden">
+    <div class="manual-modal" role="dialog" aria-modal="true" aria-labelledby="manual-step-title">
+      <button class="manual-close" id="manual-close" aria-label="Cerrar manual">✕</button>
+      <div class="manual-header">
+        <p class="manual-eyebrow">Guía rápida</p>
+        <h2 class="manual-title" id="manual-step-title"></h2>
+      </div>
+      <div class="manual-body" id="manual-step-body"></div>
+      <div class="manual-footer">
+        <div class="manual-dots" id="manual-dots"></div>
+        <div class="manual-nav">
+          <button class="manual-nav-btn" id="manual-prev">Anterior</button>
+          <button class="manual-nav-btn primary" id="manual-next">Siguiente</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
 </div>
 
@@ -615,6 +687,101 @@
 
   document.getElementById('admin-logout').addEventListener('click', function(){ signOut(auth); });
   document.getElementById('app-logout').addEventListener('click', function(){ signOut(auth); });
+
+  
+  var MANUAL_STEPS = [
+    {
+      title: 'Bienvenido a Surtidores de Trinidad, Beni',
+      body:
+        '<p>Esta aplicación muestra, en tiempo real, cómo está la fila en los surtidores de la ciudad y te deja reportar lo que ves para ayudar a los demás usuarios.</p>' +
+        '<p>Los datos se comparten al instante entre todas las personas conectadas.</p>'
+    },
+    {
+      title: '1. Elija un surtidor en el mapa',
+      body:
+        '<p>Toque cualquiera de los marcadores del mapa para abrir su ficha en el panel lateral. Ahí verá el estado actual y el formulario para reportar.</p>'
+    },
+    {
+      title: '2. Envíe su reporte',
+      body:
+        '<p>Eleja el tipo de vehículo, el largo aproximado de la fila y el combustible que se está vendiendo, y toque <b>Enviar reporte</b>.</p>' +
+        '<p>Cuando varias personas reportan el mismo surtidor, la app combina todos los reportes recientes y muestra un promedio del estado general.</p>'
+    },
+    {
+      title: '3. Interprete los colores',
+      body:
+        '<p>El color de cada marcador indica qué tan larga está la fila:</p>' +
+        '<div class="manual-legend-mini">' +
+          '<span><i style="background:#93948c"></i>Sin reportes</span>' +
+          '<span><i style="background:#4f9d5c"></i>&lt; 5 vehículos</span>' +
+          '<span><i style="background:#e0b13a"></i>5 – 10</span>' +
+          '<span><i style="background:#d97a35"></i>10 – 15</span>' +
+          '<span><i style="background:#c0453a"></i>&gt; 20</span>' +
+        '</div>'
+    },
+    {
+      title: '4. Los reportes vencen',
+      body:
+        '<p>Cada reporte queda vigente por 30 minutos. La barra "F ⟶ E" en la ficha del surtidor muestra cuánto falta para que se borre.</p>' +
+        '<p>Pasado ese tiempo, el surtidor vuelve a aparecer en gris hasta que alguien reporte de nuevo.</p>'
+    },
+    {
+      title: '¿Eres administrador?',
+      body:
+        '<p>Si tu perfil tiene permisos de administrador, en lugar del mapa vas a ver un <b>registro de actividad</b> con todos los inicios de sesión y reportes enviados por los usuarios, sincronizado en vivo.</p>' +
+        '<p>Desde ahí también podés actualizar el registro o vaciarlo por completo.</p>'
+    }
+  ];
+  var manualIndex = 0;
+  var manualOverlayEl = document.getElementById('manual-overlay');
+  var manualTitleEl = document.getElementById('manual-step-title');
+  var manualBodyEl = document.getElementById('manual-step-body');
+  var manualDotsEl = document.getElementById('manual-dots');
+  var manualPrevBtn = document.getElementById('manual-prev');
+  var manualNextBtn = document.getElementById('manual-next');
+
+  function renderManualStep(){
+    var step = MANUAL_STEPS[manualIndex];
+    manualTitleEl.textContent = step.title;
+    manualBodyEl.innerHTML = step.body;
+    manualDotsEl.innerHTML = MANUAL_STEPS.map(function(_, i){
+      return '<button class="manual-dot'+(i === manualIndex ? ' active' : '')+'" data-step="'+i+'" aria-label="Paso '+(i+1)+'"></button>';
+    }).join('');
+    manualDotsEl.querySelectorAll('.manual-dot').forEach(function(dot){
+      dot.addEventListener('click', function(){
+        manualIndex = parseInt(dot.getAttribute('data-step'), 10);
+        renderManualStep();
+      });
+    });
+    manualPrevBtn.disabled = manualIndex === 0;
+    manualNextBtn.textContent = manualIndex === MANUAL_STEPS.length - 1 ? 'Listo' : 'Siguiente';
+  }
+
+  function openManual(){
+    manualIndex = 0;
+    renderManualStep();
+    manualOverlayEl.classList.remove('hidden');
+  }
+  function closeManual(){
+    manualOverlayEl.classList.add('hidden');
+  }
+
+  document.getElementById('manual-close').addEventListener('click', closeManual);
+  manualOverlayEl.addEventListener('click', function(e){
+    if(e.target === manualOverlayEl) closeManual();
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && !manualOverlayEl.classList.contains('hidden')) closeManual();
+  });
+  manualPrevBtn.addEventListener('click', function(){
+    if(manualIndex > 0){ manualIndex--; renderManualStep(); }
+  });
+  manualNextBtn.addEventListener('click', function(){
+    if(manualIndex < MANUAL_STEPS.length - 1){ manualIndex++; renderManualStep(); }
+    else { closeManual(); }
+  });
+  document.getElementById('app-manual-btn').addEventListener('click', openManual);
+  document.getElementById('admin-manual-btn').addEventListener('click', openManual);
 
   function resetToLoginUI(){
     currentUser = null;
